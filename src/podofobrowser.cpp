@@ -20,22 +20,24 @@
 
 
 #include "podofobrowser.h"
+#include "ui_podofoaboutdlg.h"
 #include "pdflistviewitem.h"
-#include "podofoaboutdlg.h"
 
 #include <qapplication.h>
 #include <qcursor.h>
-#include <qfiledialog.h>
+#include <q3filedialog.h>
 #include <qinputdialog.h>
 #include <qlabel.h>
 #include <qmessagebox.h>
 #include <qpushbutton.h>
-#include <qprogressdialog.h> 
+#include <q3progressdialog.h> 
 #include <qsettings.h>
 #include <qsplitter.h>
 #include <qstatusbar.h>
-#include <qtable.h>
-#include <qtextedit.h>
+#include <q3table.h>
+#include <q3textedit.h>
+//Added by qt3to4:
+#include <Q3ValueList>
 
 using namespace PoDoFo;
 
@@ -56,13 +58,17 @@ private:
 };
 
 PoDoFoBrowser::PoDoFoBrowser()
-    : PoDoFoBrowserBase( 0, "PoDoFoBrowser", WDestructiveClose ), m_pDocument( NULL )
+    : Q3MainWindow(0, "PoDoFoBrowser", Qt::WDestructiveClose ),
+      PoDoFoBrowserBase(),
+      m_pDocument( NULL )
 {
+    setupUi(this);
+
     clear();
 
     listObjects->setSorting( -1 );
 
-    connect( listObjects, SIGNAL( selectionChanged( QListViewItem* ) ), this, SLOT( objectChanged( QListViewItem* ) ) );
+    connect( listObjects, SIGNAL( selectionChanged( Q3ListViewItem* ) ), this, SLOT( objectChanged( Q3ListViewItem* ) ) );
     connect( buttonImport, SIGNAL( clicked() ), this, SLOT( slotImportStream() ) );
     connect( buttonExport, SIGNAL( clicked() ), this, SLOT( slotExportStream() ) );
     connect( tableKeys, SIGNAL( valueChanged(int,int) ), this, SLOT( slotTableChanged() ) );
@@ -85,7 +91,7 @@ void PoDoFoBrowser::loadConfig()
 {
     int w,h;
 
-    QValueList<int> list;
+    Q3ValueList<int> list;
     QSettings       settings;
 
     settings.setPath( "podofo.sf.net", "podofobrowser" );
@@ -215,7 +221,7 @@ bool PoDoFoBrowser::fileSave( const QString & filename )
     return true;
 }
 
-void PoDoFoBrowser::objectChanged( QListViewItem* item )
+void PoDoFoBrowser::objectChanged( Q3ListViewItem* item )
 {
     PdfError         eCode;
     std::string      str;
@@ -258,8 +264,8 @@ void PoDoFoBrowser::objectChanged( QListViewItem* item )
                     break;
                 }
                 
-                tableKeys->setText( i, 0, QString( (*it).first.GetName() ) );
-                tableKeys->setText( i, 1, QString( str ) );
+                tableKeys->setText( i, 0, QString( (*it).first.GetName().c_str() ) );
+                tableKeys->setText( i, 1, QString( str.c_str() ) );
             }
 
             ++i;
@@ -279,7 +285,7 @@ void PoDoFoBrowser::objectChanged( QListViewItem* item )
         
         tableKeys->setNumRows( 1 );
         tableKeys->setNumCols( 1 );
-        tableKeys->setText( 0, 0, QString( str ) );
+        tableKeys->setText( 0, 0, QString( str.c_str() ) );
         tableKeys->adjustColumn( 0 );
         tableKeys->horizontalHeader()->setLabel( 0, tr( "Value" ) );
     }
@@ -355,7 +361,7 @@ void PoDoFoBrowser::fileOpen()
    if( !trySave() ) 
        return;
 
-    QString filename = QFileDialog::getOpenFileName( QString::null, tr("PDF File (*.pdf)"), this );
+    QString filename = Q3FileDialog::getOpenFileName( QString::null, tr("PDF File (*.pdf)"), this );
     if( !filename.isNull() )
         fileOpen( filename );
 }
@@ -370,7 +376,7 @@ bool PoDoFoBrowser::fileSave()
 
 bool PoDoFoBrowser::fileSaveAs()
 {
-    QString filename = QFileDialog::getSaveFileName( QString::null, tr("PDF File (*.pdf)"), this );
+    QString filename = Q3FileDialog::getSaveFileName( QString::null, tr("PDF File (*.pdf)"), this );
     if( !filename.isNull() )
         return fileSave( filename );
     else
@@ -439,10 +445,10 @@ bool PoDoFoBrowser::saveObject()
             }
 
 
-            pszText = tableKeys->text( i, 1 ).latin1();
+            QByteArray bytes( tableKeys->text( i, 1 ).toLatin1() );
 
             try {
-                var.Parse( pszText );
+		PdfTokenizer(bytes, bytes.size()).GetNextVariant(var);
             } catch( PdfError & e ) {
                 QString msg = QString("\"%1\" is no valid PDF datatype.\n").arg( pszText );
                 e.SetErrorInformation( msg.latin1() );
@@ -457,15 +463,16 @@ bool PoDoFoBrowser::saveObject()
         // first check wether all keys are valid
         for( i=0;i<tableKeys->numRows();i++ )
         {
-            var.Parse( tableKeys->text( i, 1 ).latin1() );
+	    QByteArray bytes( tableKeys->text( i, 1 ).toLatin1() );
+	    PdfTokenizer(bytes, bytes.size()).GetNextVariant(var);
             m_pCurObject->GetDictionary().AddKey( PdfName( tableKeys->text( i, 0 ).latin1() ), var );
         }
     }
     else
     {
-        pszText = tableKeys->text( 0, 0 ).latin1();
+        QByteArray bytes( tableKeys->text( 0, 0 ).toLatin1() );
         try {
-            var.Parse( pszText );
+	    PdfTokenizer(bytes, bytes.size()).GetNextVariant(var);
         } catch ( PdfError & e ) {
             podofoError( eCode );
             return false;
@@ -499,12 +506,12 @@ void PoDoFoBrowser::slotImportStream()
     if( !m_pCurObject )
         return; 
 
-    filename = QFileDialog::getOpenFileName( QString::null, tr("File (*)"), this );
+    filename = Q3FileDialog::getOpenFileName( QString::null, tr("File (*)"), this );
     if( filename.isNull() )
         return;
     
     file.setName( filename );
-    if( !file.open( IO_ReadOnly ) )
+    if( !file.open( QIODevice::ReadOnly ) )
     {
         QMessageBox::critical( this, tr("Error"), QString( tr("Cannot open file %1 for reading.") ).arg( filename ) );
         return;
@@ -544,7 +551,7 @@ void PoDoFoBrowser::slotExportStream()
     if( !m_pCurObject )
         return; 
 
-    filename = QFileDialog::getSaveFileName( QString::null, tr("File (*)"), this );
+    filename = Q3FileDialog::getSaveFileName( QString::null, tr("File (*)"), this );
     if( filename.isNull() )
         return;
 
@@ -556,7 +563,7 @@ void PoDoFoBrowser::slotExportStream()
     }
 
     file.setName( filename );
-    if( !file.open( IO_WriteOnly ) )
+    if( !file.open( QIODevice::WriteOnly ) )
     {
         QMessageBox::critical( this, tr("Error"), QString( tr("Cannot open file %1 for writing.") ).arg( filename ) );
         return;
@@ -569,7 +576,7 @@ void PoDoFoBrowser::slotExportStream()
 
 void PoDoFoBrowser::toolsToHex()
 {
-    PdfHexFilter   filter;
+    const PdfFilter * const hexfilter = PdfFilterFactory::Create(ePdfFilter_ASCIIHexDecode);
 
     char* pBuffer = NULL;
     long  lLen    = 0;
@@ -578,7 +585,7 @@ void PoDoFoBrowser::toolsToHex()
     if( QString::null != text ) 
     {
         try {
-            filter.Encode( text.latin1(), text.length(), &pBuffer, &lLen );
+            hexfilter->Encode( text.latin1(), text.length(), &pBuffer, &lLen );
         } catch( PdfError & e ) {
             podofoError( e );
             return;
@@ -591,7 +598,7 @@ void PoDoFoBrowser::toolsToHex()
 
 void PoDoFoBrowser::toolsFromHex()
 {
-    PdfHexFilter   filter;
+    const PdfFilter * const hexfilter = PdfFilterFactory::Create(ePdfFilter_ASCIIHexDecode);
 
     char* pBuffer = NULL;
     long  lLen    = 0;
@@ -600,7 +607,7 @@ void PoDoFoBrowser::toolsFromHex()
     if( QString::null != text ) 
     {
         try {
-            filter.Decode( text.latin1(), text.length(), &pBuffer, &lLen );
+            hexfilter->Decode( text.latin1(), text.length(), &pBuffer, &lLen );
         } catch( PdfError & e ) {
             podofoError( e );
             return;
@@ -656,7 +663,7 @@ void PoDoFoBrowser::editDeleteKey()
 
 void PoDoFoBrowser::editDeleteObject()
 {
-    QListViewItem* item;
+    Q3ListViewItem* item;
     PdfObject*     pObj;
     
     item  = listObjects->currentItem();
@@ -693,7 +700,7 @@ void PoDoFoBrowser::editDeleteObject()
 void PoDoFoBrowser::loadObjects()
 {
     TCIVecObjects       it;
-    QProgressDialog     dlg( this );
+    Q3ProgressDialog     dlg( this );
     int                 i   = 0;
 
     dlg.setLabelText( QString( tr( "Reading %1 objects ...") ).arg( m_pDocument->GetObjects().size() ) );
@@ -711,7 +718,7 @@ void PoDoFoBrowser::loadObjects()
         dlg.setProgress( i );
         qApp->processEvents();
 
-        if( dlg.wasCancelled() )
+        if( dlg.wasCanceled() )
         {
             break;
         }
@@ -730,7 +737,9 @@ void PoDoFoBrowser::loadObjects()
 
 void PoDoFoBrowser::helpAbout()
 {
-    PodofoAboutDlg* dlg = new PodofoAboutDlg( this );
+    QDialog* dlg = new QDialog( this );
+    Ui::PodofoAboutDlg dlgUi;
+    dlgUi.setupUi(dlg);
     dlg->show();
 }
 
@@ -764,8 +773,8 @@ void PoDoFoBrowser::slotTableChanged()
 
 void PoDoFoBrowser::loadAllObjects()
 {
-    QListViewItemIterator it( listObjects );
-    QProgressDialog       dlg( this );
+    Q3ListViewItemIterator it( listObjects );
+    Q3ProgressDialog       dlg( this );
     int                   i = 0;
 
     dlg.setLabelText( QString( tr( "Reading %1 objects ...") ).arg( listObjects->childCount() ) );
@@ -774,7 +783,7 @@ void PoDoFoBrowser::loadAllObjects()
 
     while( it.current() ) 
     {
-        if( dlg.wasCancelled() )
+        if( dlg.wasCanceled() )
             return;
 
         dlg.setProgress( i );
